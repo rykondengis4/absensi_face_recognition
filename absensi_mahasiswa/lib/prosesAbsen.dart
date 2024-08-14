@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:dropdown_search/dropdown_search.dart';
 import 'package:http/http.dart' as http;
 
 const String apiUrl = "http://127.0.0.1:8000";
@@ -16,82 +15,14 @@ class AbsensiPage extends StatefulWidget {
 
 class _AbsensiPageState extends State<AbsensiPage> {
   bool _isLoading = false;
-  List<String> mataKuliahList = [];
-  List<String> dosenList = [];
-  String? selectedMataKuliah;
-  String? selectedDosen;
   Future<void>? _initData;
 
   @override
   void initState() {
     super.initState();
-    _initData = _fetchInitData();
-  }
-
-  Future<void> _fetchInitData() async {
-    await Future.wait([_fetchMataKuliah(), _fetchDosen()]);
-  }
-
-  Future<void> _fetchMataKuliah() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final response = await http.get(Uri.parse('$apiUrl/mata_kuliah'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          mataKuliahList = List<String>.from(data['mata_kuliah']);
-        });
-      } else {
-        print("Failed to fetch mata kuliah");
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error fetching mata kuliah: $e")),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _fetchDosen() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final response = await http.get(Uri.parse('$apiUrl/dosen'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          dosenList = List<String>.from(data['dosen']);
-        });
-      } else {
-        print("Failed to fetch dosen");
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error fetching dosen: $e")),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   Future<void> _startAbsensi() async {
-    if (selectedMataKuliah == null || selectedDosen == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pilih mata kuliah dan dosen terlebih dahulu")),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
@@ -161,7 +92,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
       child: Padding(
         padding: const EdgeInsets.all(50),
         child: Container(
-          height: 500,
+          height: 300,
           decoration: BoxDecoration(
               color: Colors.deepPurple[400],
               borderRadius: BorderRadius.circular(10)),
@@ -170,72 +101,9 @@ class _AbsensiPageState extends State<AbsensiPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 300,
-                        width: 400,
-                        margin: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20)),
-                        child: DropdownSearch<String>(
-                          popupProps: PopupProps.dialog(
-                            showSelectedItems: true,
-                          ),
-                          items: mataKuliahList,
-                          dropdownDecoratorProps: DropDownDecoratorProps(
-                            dropdownSearchDecoration: InputDecoration(
-                              labelText: "Mata Kuliah",
-                              hintText: "menu mata kuliah",
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedMataKuliah = value;
-                            });
-                          },
-                          selectedItem: mataKuliahList.isNotEmpty
-                              ? mataKuliahList.first
-                              : null,
-                        ),
-                      ),
-                      Container(
-                        height: 300,
-                        width: 400,
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20)),
-                        child: DropdownSearch<String>(
-                          popupProps: PopupProps.dialog(
-                            showSelectedItems: true,
-                          ),
-                          items: dosenList,
-                          dropdownDecoratorProps: DropDownDecoratorProps(
-                            dropdownSearchDecoration: InputDecoration(
-                              labelText: "Dosen Pengampu",
-                              hintText: "menu dosen",
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedDosen = value;
-                            });
-                          },
-                          selectedItem:
-                              dosenList.isNotEmpty ? dosenList.first : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: (_isLoading ||
-                          selectedMataKuliah == null ||
-                          selectedDosen == null)
+                  onPressed: _isLoading
                       ? null
                       : () async {
                           await _startAbsensi();
