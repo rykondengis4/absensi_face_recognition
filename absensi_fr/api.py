@@ -65,18 +65,6 @@ def check_absensi(id_mahasiswa: int, tanggal_absensi: str):
 def read_root():
     return {"message": "Hello, World!"}
 
-@app.get("/mata_kuliah")
-async def get_mata_kuliah_endpoint():
-    query = "SELECT mata_kuliah FROM t_mata_kuliah"
-    result = execute_query(query)
-    return {"mata_kuliah": [row[0] for row in result]}
-
-@app.get("/dosen")
-async def get_dosen_endpoint():
-    query = "SELECT nama_dosen FROM t_dosen"
-    result = execute_query(query)
-    return {"dosen": [row[0] for row in result]}
-
 @app.post("/start")
 def start_camera():
     global camera_process

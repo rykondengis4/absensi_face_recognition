@@ -15,12 +15,6 @@ class AbsensiPage extends StatefulWidget {
 
 class _AbsensiPageState extends State<AbsensiPage> {
   bool _isLoading = false;
-  Future<void>? _initData;
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   Future<void> _startAbsensi() async {
     setState(() {
@@ -37,12 +31,12 @@ class _AbsensiPageState extends State<AbsensiPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal memulai absensi")),
+          SnackBar(content: Text("Gagal memulai absensi. Coba lagi nanti.")),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text("Terjadi kesalahan: $e")),
       );
     } finally {
       setState(() {
@@ -66,59 +60,39 @@ class _AbsensiPageState extends State<AbsensiPage> {
           ),
         ),
       ),
-      body: FutureBuilder(
-          future: _initData,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: SpinKitSpinningLines(
-                  color: Colors.white,
-                  size: 50,
-                ),
-              );
-            } else if (snapshot.hasError) {
-              return Center(
-                child: Text("Failed to load data"),
-              );
-            } else {
-              return _buildMainContent();
-            }
-          }),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Colors.deepPurple[400],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: _isLoading
+                ? Center(
+                    child: SpinKitSpinningLines(
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  )
+                : _buildMainContent(),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildMainContent() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(50),
-        child: Container(
-          height: 300,
-          decoration: BoxDecoration(
-              color: Colors.deepPurple[400],
-              borderRadius: BorderRadius.circular(10)),
-          child: Align(
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () async {
-                          await _startAbsensi();
-                        },
-                  child: _isLoading
-                      ? SpinKitSpinningLines(
-                          color: Colors.white,
-                          size: 50,
-                        )
-                      : Text('Mulai Absensi'),
-                ),
-              ],
-            ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            onPressed: _isLoading ? null : _startAbsensi,
+            child: Text('Mulai Absensi'),
           ),
-        ),
+        ],
       ),
     );
   }
