@@ -2,130 +2,63 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 import subprocess
 import mysql.connector
+from mysql.connector import Error
 
 app = FastAPI()
 
 camera_process = None
 
 class AbsensiData(BaseModel):
-    tanggal_absensi: str
     id_mahasiswa: int
+    tanggal_absensi: str
     waktu_masuk: str
 
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            database="absensi_wajah"
+        )
+        return connection
+    except Error as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+def execute_query(query, params=None, fetchone=False):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute(query, params)
+        if fetchone:
+            result = cursor.fetchone()
+        else:
+            result = cursor.fetchall()
+        connection.commit()
+    except Error as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        connection.close()
+    return result
 
 @app.post("/insert_absensi")
 def insert_absensi(data: AbsensiData):
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-    mycursor = db_connection.cursor()
-
-    try:
-        sql_insert = """
-        INSERT INTO t_absensi (tanggal_absensi, id_mahasiswa, waktu_masuk)
-        VALUES (%s, %s, %s)
-        """
-        mycursor.execute(sql_insert, (data.tanggal_absensi, data.id_mahasiswa, data.waktu_masuk))
-        db_connection.commit()
-    except mysql.connector.Error as err:
-        db_connection.rollback()
-        raise HTTPException(status_code=500, detail=str(err))
-    finally:
-        mycursor.close()
-        db_connection.close()
-
-    return {"message": "Insert successful"}
-
-def get_mata_kuliah():
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-
-    mycursor = db_connection.cursor()
-
-    mycursor.execute("SELECT mata_kuliah FROM t_mata_kuliah")
-    result = mycursor.fetchall()
-
-    db_connection.close()
-
-    return [row[0] for row in result]
-
-def get_dosen():
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-
-    mycursor = db_connection.cursor()
-
-    mycursor.execute("SELECT nama_dosen FROM t_dosen")
-    result = mycursor.fetchall()
-
-    db_connection.close()
-
-    return [row[0] for row in result]
-
-def get_student_by_name(name):
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-    mycursor = db_connection.cursor()
-
-    query = """
-    SELECT m.id_mahasiswa, m.nim
-    FROM t_mahasiswa m
-    WHERE LOWER(m.nama) = LOWER(%s)
+    sql_insert = """
+    INSERT INTO t_absensi (id_mahasiswa, tanggal_absensi, waktu_masuk)
+    VALUES (%s, %s, %s)
     """
-    mycursor.execute(query, (name.lower(),))
-    result = mycursor.fetchone()
-
-    db_connection.close()
-
-    return result
-
-def get_nim_by_id(id_mahasiswa):
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-    mycursor = db_connection.cursor()
-
-    query = "SELECT nim FROM t_mahasiswa WHERE id_mahasiswa = %s"
-    mycursor.execute(query, (id_mahasiswa,))
-    nim_result = mycursor.fetchone()
-
-    db_connection.close()
-
-    return nim_result
+    execute_query(sql_insert, (data.id_mahasiswa, data.tanggal_absensi, data.waktu_masuk))
+    return {"message": "Insert successful"}
 
 @app.get("/check_absensi")
 def check_absensi(id_mahasiswa: int, tanggal_absensi: str):
-    db_connection = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        database="absensi_wajah"
-    )
-    mycursor = db_connection.cursor()
-
     check_query = """
     SELECT COUNT(*)
     FROM t_absensi
     WHERE tanggal_absensi = %s AND id_mahasiswa = %s
     """
-    mycursor.execute(check_query, (tanggal_absensi, id_mahasiswa))
-    count_result = mycursor.fetchone()[0]
-
-    db_connection.close()
-
+    count_result = execute_query(check_query, (tanggal_absensi, id_mahasiswa), fetchone=True)[0]
     return {"count": count_result}
 
 @app.get("/")
@@ -134,11 +67,15 @@ def read_root():
 
 @app.get("/mata_kuliah")
 async def get_mata_kuliah_endpoint():
-    return {"mata_kuliah" : get_mata_kuliah()}
+    query = "SELECT mata_kuliah FROM t_mata_kuliah"
+    result = execute_query(query)
+    return {"mata_kuliah": [row[0] for row in result]}
 
 @app.get("/dosen")
 async def get_dosen_endpoint():
-    return {"dosen" : get_dosen()}
+    query = "SELECT nama_dosen FROM t_dosen"
+    result = execute_query(query)
+    return {"dosen": [row[0] for row in result]}
 
 @app.post("/start")
 def start_camera():
@@ -159,15 +96,18 @@ def stop_camera():
         camera_process.terminate()
         camera_process.wait()
         camera_process = None
-        return {"Kamera dihentikan"}
+        return {"message": "Kamera dihentikan"}
     else:
         raise HTTPException(status_code=400, detail="Kamera tidak sedang berjalan")
 
 @app.get("/mahasiswa")
 def get_mahasiswa_by_name(name: str = Query(...)):
-
-    result = get_student_by_name(name)
-
+    query = """
+    SELECT m.id_mahasiswa, m.nim
+    FROM t_mahasiswa m
+    WHERE LOWER(m.nama) = LOWER(%s)
+    """
+    result = execute_query(query, (name.lower(),), fetchone=True)
     if result:
         return result
     else:
@@ -175,9 +115,8 @@ def get_mahasiswa_by_name(name: str = Query(...)):
 
 @app.get("/nim")
 def get_nim_by_student_id(id: int = Query(...)):
-
-    result = get_nim_by_id(id)
-
+    query = "SELECT nim FROM t_mahasiswa WHERE id_mahasiswa = %s"
+    result = execute_query(query, (id,), fetchone=True)
     if result:
         return result
     else:

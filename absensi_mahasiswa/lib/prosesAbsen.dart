@@ -5,6 +5,8 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:http/http.dart' as http;
 
+const String apiUrl = "http://127.0.0.1:8000";
+
 class AbsensiPage extends StatefulWidget {
   const AbsensiPage({super.key});
 
@@ -13,7 +15,6 @@ class AbsensiPage extends StatefulWidget {
 }
 
 class _AbsensiPageState extends State<AbsensiPage> {
-  final String apiUrl = "http://127.0.0.1:8000";
   bool _isLoading = false;
   List<String> mataKuliahList = [];
   List<String> dosenList = [];
@@ -38,23 +39,22 @@ class _AbsensiPageState extends State<AbsensiPage> {
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/mata_kuliah'));
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
           mataKuliahList = List<String>.from(data['mata_kuliah']);
-          _isLoading = false;
         });
       } else {
         print("Failed to fetch mata kuliah");
       }
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching mata kuliah: $e")),
+      );
+    } finally {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
     }
   }
 
@@ -65,18 +65,22 @@ class _AbsensiPageState extends State<AbsensiPage> {
 
     try {
       final response = await http.get(Uri.parse('$apiUrl/dosen'));
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
           dosenList = List<String>.from(data['dosen']);
-          _isLoading = false;
         });
       } else {
         print("Failed to fetch dosen");
       }
     } catch (e) {
-      print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching dosen: $e")),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -96,14 +100,23 @@ class _AbsensiPageState extends State<AbsensiPage> {
 
     try {
       final response = await http.post(url);
-
       if (response.statusCode == 200) {
-        print("Memulai Absensi");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Absensi dimulai")),
+        );
       } else {
-        print("Gagal memulai absensi");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal memulai absensi")),
+        );
       }
     } catch (e) {
-      print("Error : Maintenence $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -171,7 +184,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
                         child: DropdownSearch<String>(
                           popupProps: PopupProps.dialog(
                             showSelectedItems: true,
-                            // disabledItemFn: (String s) => s.startsWith('I'),
                           ),
                           items: mataKuliahList,
                           dropdownDecoratorProps: DropDownDecoratorProps(
@@ -185,7 +197,9 @@ class _AbsensiPageState extends State<AbsensiPage> {
                               selectedMataKuliah = value;
                             });
                           },
-                          selectedItem: mataKuliahList.first,
+                          selectedItem: mataKuliahList.isNotEmpty
+                              ? mataKuliahList.first
+                              : null,
                         ),
                       ),
                       Container(
@@ -210,7 +224,8 @@ class _AbsensiPageState extends State<AbsensiPage> {
                               selectedDosen = value;
                             });
                           },
-                          selectedItem: dosenList.first,
+                          selectedItem:
+                              dosenList.isNotEmpty ? dosenList.first : null,
                         ),
                       ),
                     ],
