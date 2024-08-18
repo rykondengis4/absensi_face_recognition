@@ -3,15 +3,23 @@ from pydantic import BaseModel
 import subprocess
 import mysql.connector
 from mysql.connector import Error
+from geopy.distance import great_circle
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 
 camera_process = None
 
+
 class AbsensiData(BaseModel):
     id_mahasiswa: int
     tanggal_absensi: str
     waktu_masuk: str
+
+class Location(BaseModel):
+    latitude: float
+    longitude: float
 
 def get_db_connection():
     try:
@@ -41,6 +49,24 @@ def execute_query(query, params=None, fetchone=False):
         cursor.close()
         connection.close()
     return result
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Atau tentukan domain yang diizinkan
+    allow_credentials=True,
+    allow_methods=["*"],  # Atau tentukan metode yang diizinkan
+    allow_headers=["*"],  # Atau tentukan header yang diizinkan
+)
+
+CAMPUS_LAT = 0.5240650265759241
+CAMPUS_LON = 123.11079751027609
+RADIUS_KM = 0.5
+
+def is_within_campus(student_lat, student_lon, campus_lat, campus_lon, radius_km):
+    student_location = (student_lat, student_lon)
+    campus_location = (campus_lat, campus_lon)
+    distance = great_circle(student_location, campus_location).kilometers
+    return distance <= radius_km
 
 @app.post("/insert_absensi")
 def insert_absensi(data: AbsensiData):
@@ -109,3 +135,18 @@ def get_nim_by_student_id(id: int = Query(...)):
         return result
     else:
         raise HTTPException(status_code=404, detail="Data tidak ditemukan")
+
+
+@app.post("/update_location")
+async def update_location(location: Location):
+    print(f"Received latitude: {location.latitude}")
+    print(f"Received longitude: {location.longitude}")
+
+    if is_within_campus(location.latitude, location.longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
+        status = "Berada di kampus"
+    else:
+        status = "Tidak berada di kampus"
+
+    print(f"Status: {status}")
+
+    return {"status": status, "location": location}

@@ -92,7 +92,7 @@ def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
     data = {
         "tanggal_absensi": tanggal_absensi,
         "id_mahasiswa": id_mahasiswa,
-        "waktu_masuk": waktu_masuk,
+        "waktu_masuk": waktu_masuk
     }
 
     try:
@@ -166,6 +166,7 @@ def process_frame():
 
                                 if count_result == 0:
                                     insert_absensi(current_date, id_mahasiswa, absenceTime)
+
 
                 cv2.imshow("wajah", img)
                 key = cv2.waitKey(1) & 0xFF
