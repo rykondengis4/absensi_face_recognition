@@ -11,6 +11,7 @@ app = FastAPI()
 
 camera_process = None
 
+saved_locations = []
 
 class AbsensiData(BaseModel):
     id_mahasiswa: int
@@ -20,6 +21,10 @@ class AbsensiData(BaseModel):
 class Location(BaseModel):
     latitude: float
     longitude: float
+
+class LocationBatch(BaseModel):
+    locations: list[Location]
+
 
 def get_db_connection():
     try:
@@ -52,28 +57,32 @@ def execute_query(query, params=None, fetchone=False):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Atau tentukan domain yang diizinkan
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Atau tentukan metode yang diizinkan
-    allow_headers=["*"],  # Atau tentukan header yang diizinkan
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-CAMPUS_LAT = 0.5240650265759241
-CAMPUS_LON = 123.11079751027609
-RADIUS_KM = 0.5
+@app.post("/post_location")
+async def get_location(data: LocationBatch):
+    global saved_locations
+    saved_locations = data.locations
+    print(f"Received data: {data}")
+    return {"message": "Data received"}
 
-def is_within_campus(student_lat, student_lon, campus_lat, campus_lon, radius_km):
-    student_location = (student_lat, student_lon)
-    campus_location = (campus_lat, campus_lon)
-    distance = great_circle(student_location, campus_location).kilometers
-    return distance <= radius_km
+@app.get("/get_location")
+async def get_location():
+    global saved_locations
+    if not saved_locations:
+        raise HTTPException(status_code=404, detail="No location data available")
+    return {"locations": saved_locations}
 
 @app.post("/insert_absensi")
 def insert_absensi(data: AbsensiData):
     sql_insert = """
-    INSERT INTO t_absensi (id_mahasiswa, tanggal_absensi, waktu_masuk)
-    VALUES (%s, %s, %s)
-    """
+        INSERT INTO t_absensi (id_mahasiswa, tanggal_absensi, waktu_masuk)
+        VALUES (%s, %s, %s)
+        """
     execute_query(sql_insert, (data.id_mahasiswa, data.tanggal_absensi, data.waktu_masuk))
     return {"message": "Insert successful"}
 
@@ -135,18 +144,3 @@ def get_nim_by_student_id(id: int = Query(...)):
         return result
     else:
         raise HTTPException(status_code=404, detail="Data tidak ditemukan")
-
-
-@app.post("/update_location")
-async def update_location(location: Location):
-    print(f"Received latitude: {location.latitude}")
-    print(f"Received longitude: {location.longitude}")
-
-    if is_within_campus(location.latitude, location.longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
-        status = "Berada di kampus"
-    else:
-        status = "Tidak berada di kampus"
-
-    print(f"Status: {status}")
-
-    return {"status": status, "location": location}

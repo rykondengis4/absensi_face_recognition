@@ -48,30 +48,24 @@ class _AbsensiPageState extends State<AbsensiPage> {
     try {
       await _startCamera();
 
-      // Mendapatkan posisi saat ini
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Mengirimkan data lokasi
-      final url = Uri.parse('$apiUrl/update_location');
-
+      final url = Uri.parse('http://127.0.0.1:8000/post_location');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'latitude': position.latitude,
-          'longitude': position.longitude,
+          'locations': [
+            {'latitude': position.latitude, 'longitude': position.longitude}
+          ],
         }),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _status = data['status'];
-        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Absensi berhasil. Status: $_status")),
+          SnackBar(content: Text("Memulai Absensi")),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,14 +130,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
             onPressed: _isLoading ? null : _startAbsensi,
             child: Text('Mulai Absensi'),
           ),
-          if (_status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Status: $_status',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
         ],
       ),
     );

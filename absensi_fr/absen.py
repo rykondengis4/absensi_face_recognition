@@ -8,6 +8,7 @@ import signal
 import requests
 import time
 import threading
+from geopy.distance import great_circle
 
 # database connection
 db_connection = mysql.connector.connect(
@@ -35,6 +36,7 @@ for cl in myList:
 
 print(studentName)
 
+
 def findEncodings(images):
     encodingList = []
     for img in images:
@@ -42,6 +44,7 @@ def findEncodings(images):
         encode = face_recognition.face_encodings(img)[0]
         encodingList.append(encode)
     return encodingList
+
 
 encodeListKnown = findEncodings(images)
 print("encoding complete")
@@ -55,15 +58,40 @@ print(current_date)
 
 app_running = True
 
+CAMPUS_LAT = 0.52301
+CAMPUS_LON = 123.11148450803552
+RADIUS_KM = 0.5
+
+# CAMPUS_LAT = 0.577149
+# CAMPUS_LON = 123.06322300000001
+# RADIUS_KM = 0.5
+
+def is_within_campus(student_lat, student_lon, campus_lat, campus_lon, radius_km):
+    student_location = (student_lat, student_lon)
+    campus_location = (campus_lat, campus_lon)
+    distance = great_circle(student_location, campus_location).kilometers
+    return distance <= radius_km
+
+def get_location_from_api():
+    try:
+        response = requests.get("http://127.0.0.1:8000/get_location")
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Error fetching location data: {e}")
+        return None
+
 def start_camera():
     url = "http://127.0.0.1:8000/start"
     response = requests.post(url)
     print(response.json())
 
+
 def stop_camera():
     url = "http://127.0.0.1:8000/stop"
     response = requests.post(url)
     print(response.json())
+
 
 def stop_application():
     global app_running
@@ -77,13 +105,16 @@ def handle_exit(signal, frame):
     stop_application()
     exit(0)
 
+
 def get_nim_by_id(id_mahasiswa):
     response = requests.get("http://127.0.0.1:8000/nim", params={"id": id_mahasiswa})
     nim_result = response.json()
     return nim_result
 
+
 def check_absensi(id_mahasiswa, tanggal_absensi):
-    response = requests.get("http://127.0.0.1:8000/check_absensi", params={"id_mahasiswa": id_mahasiswa, "tanggal_absensi": tanggal_absensi})
+    response = requests.get("http://127.0.0.1:8000/check_absensi",
+                            params={"id_mahasiswa": id_mahasiswa, "tanggal_absensi": tanggal_absensi})
     result = response.json()
     return result.get("count", 0)
 
@@ -92,7 +123,7 @@ def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
     data = {
         "tanggal_absensi": tanggal_absensi,
         "id_mahasiswa": id_mahasiswa,
-        "waktu_masuk": waktu_masuk
+        "waktu_masuk": waktu_masuk,
     }
 
     try:
@@ -105,25 +136,24 @@ def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
 
 
 def process_frame():
-    global app_running
+    global app_running, latitude, longitude
     start_time = time.time()
 
     while app_running:
 
-        if time.time() - start_time > 20:
+        if time.time() - start_time > 5:
             stop_camera()
             stop_application()
             break
 
         success, img = cam.read()
-        imgS = cv2.resize(img,(0,0), None,0.25, 0.25)
+        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
         imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
 
         faceCurlFrame = face_recognition.face_locations(imgS)
         encodeCurlFrame = face_recognition.face_encodings(imgS, faceCurlFrame)
 
         dates_printed = set()
-
 
         if not faceCurlFrame:
             stop_camera()
@@ -143,7 +173,6 @@ def process_frame():
                         response = requests.get("http://127.0.0.1:8000/mahasiswa", params={"name": name})
                         result = response.json()
 
-
                         if result:
                             id_mahasiswa = result[0]
 
@@ -162,10 +191,23 @@ def process_frame():
                                             (255, 255, 255), 2)
                                 cv2.rectangle(img, (x1, y2 - 5), (x2, y2), (0, 255, 0), 2)
 
+
                                 count_result = check_absensi(id_mahasiswa, current_date)
 
                                 if count_result == 0:
-                                    insert_absensi(current_date, id_mahasiswa, absenceTime)
+
+                                    location_data = get_location_from_api()
+
+                                    if location_data:
+                                        for location in location_data["locations"]:
+                                            latitude = location["latitude"]
+                                            longitude = location["longitude"]
+                                            print(f"Received Pada absen: {latitude}, longitude: {longitude}")
+
+                                    if is_within_campus(latitude, longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
+                                        insert_absensi(current_date, id_mahasiswa, absenceTime)
+                                    else:
+                                        print("Mahasiswa tidak di dalam kampus. Tidak melakukan absensi.")
 
 
                 cv2.imshow("wajah", img)
@@ -176,6 +218,7 @@ def process_frame():
                     break
 
         del img, imgS
+
 
 signal.signal(signal.SIGINT, handle_exit)
 frame_thread = threading.Thread(target=process_frame)
