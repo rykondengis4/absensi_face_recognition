@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:quickalert/quickalert.dart';
 import 'package:http/http.dart' as http;
 
 const String apiUrl = "http://127.0.0.1:8000";
@@ -16,7 +17,6 @@ class AbsensiPage extends StatefulWidget {
 
 class _AbsensiPageState extends State<AbsensiPage> {
   bool _isLoading = false;
-  String _status = "";
 
   Future<void> _startCamera() async {
     final url = Uri.parse('$apiUrl/start');
@@ -52,7 +52,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      final url = Uri.parse('http://127.0.0.1:8000/post_location');
+      final url = Uri.parse('$apiUrl/post_location');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -62,7 +62,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
           ],
         }),
       );
-
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Memulai Absensi")),
@@ -71,10 +70,22 @@ class _AbsensiPageState extends State<AbsensiPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Gagal memulai absensi. Coba lagi nanti.")),
         );
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.error,
+          title: 'Oops...',
+          text: 'Maaf, aplikasi sedang dalam maintenance',
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Terjadi kesalahan: $e")),
+      );
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        title: 'Oops...',
+        text: 'Terjadi kesalahan: $e',
       );
     } finally {
       setState(() {

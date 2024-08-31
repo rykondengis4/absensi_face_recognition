@@ -25,7 +25,6 @@ class Location(BaseModel):
 class LocationBatch(BaseModel):
     locations: list[Location]
 
-
 def get_db_connection():
     try:
         connection = mysql.connector.connect(

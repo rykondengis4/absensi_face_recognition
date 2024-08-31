@@ -60,17 +60,19 @@ app_running = True
 
 CAMPUS_LAT = 0.52301
 CAMPUS_LON = 123.11148450803552
-RADIUS_KM = 0.5
+RADIUS_KM = 1
+
 
 # CAMPUS_LAT = 0.577149
 # CAMPUS_LON = 123.06322300000001
-# RADIUS_KM = 0.5
+# RADIUS_KM = 1
 
 def is_within_campus(student_lat, student_lon, campus_lat, campus_lon, radius_km):
     student_location = (student_lat, student_lon)
     campus_location = (campus_lat, campus_lon)
     distance = great_circle(student_location, campus_location).kilometers
     return distance <= radius_km
+
 
 def get_location_from_api():
     try:
@@ -80,6 +82,7 @@ def get_location_from_api():
     except requests.RequestException as e:
         print(f"Error fetching location data: {e}")
         return None
+
 
 def start_camera():
     url = "http://127.0.0.1:8000/start"
@@ -117,6 +120,7 @@ def check_absensi(id_mahasiswa, tanggal_absensi):
                             params={"id_mahasiswa": id_mahasiswa, "tanggal_absensi": tanggal_absensi})
     result = response.json()
     return result.get("count", 0)
+
 
 def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
     url = "http://127.0.0.1:8000/insert_absensi"
@@ -191,7 +195,6 @@ def process_frame():
                                             (255, 255, 255), 2)
                                 cv2.rectangle(img, (x1, y2 - 5), (x2, y2), (0, 255, 0), 2)
 
-
                                 count_result = check_absensi(id_mahasiswa, current_date)
 
                                 if count_result == 0:
@@ -208,7 +211,6 @@ def process_frame():
                                         insert_absensi(current_date, id_mahasiswa, absenceTime)
                                     else:
                                         print("Mahasiswa tidak di dalam kampus. Tidak melakukan absensi.")
-
 
                 cv2.imshow("wajah", img)
                 key = cv2.waitKey(1) & 0xFF
