@@ -10,6 +10,7 @@ import time
 import threading
 from geopy.distance import great_circle
 
+
 # database connection
 db_connection = mysql.connector.connect(
     host="localhost",
@@ -121,7 +122,6 @@ def check_absensi(id_mahasiswa, tanggal_absensi):
     result = response.json()
     return result.get("count", 0)
 
-
 def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
     url = "http://127.0.0.1:8000/insert_absensi"
     data = {
@@ -207,10 +207,12 @@ def process_frame():
                                             longitude = location["longitude"]
                                             print(f"Received Pada absen: {latitude}, longitude: {longitude}")
 
-                                    if is_within_campus(latitude, longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
-                                        insert_absensi(current_date, id_mahasiswa, absenceTime)
-                                    else:
-                                        print("Mahasiswa tidak di dalam kampus. Tidak melakukan absensi.")
+                                            if is_within_campus(latitude, longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
+                                                insert_absensi(current_date, id_mahasiswa, absenceTime)
+                                            else:
+                                                print("Mahasiswa tidak di dalam kampus. Tidak melakukan absensi.")
+
+
 
                 cv2.imshow("wajah", img)
                 key = cv2.waitKey(1) & 0xFF
