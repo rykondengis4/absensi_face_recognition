@@ -8,7 +8,6 @@ import signal
 import requests
 import time
 import threading
-from geopy.distance import great_circle
 
 
 # database connection
@@ -51,39 +50,12 @@ encodeListKnown = findEncodings(images)
 print("encoding complete")
 
 current_date = datetime.now().strftime('%Y-%m-%d')
-absenceTime = datetime.now().strftime('%H:%M:%S')
 
 cam = cv2.VideoCapture(0)
 
 print(current_date)
 
 app_running = True
-
-CAMPUS_LAT = 0.52301
-CAMPUS_LON = 123.11148450803552
-RADIUS_KM = 1
-
-
-# CAMPUS_LAT = 0.577149
-# CAMPUS_LON = 123.06322300000001
-# RADIUS_KM = 1
-
-def is_within_campus(student_lat, student_lon, campus_lat, campus_lon, radius_km):
-    student_location = (student_lat, student_lon)
-    campus_location = (campus_lat, campus_lon)
-    distance = great_circle(student_location, campus_location).kilometers
-    return distance <= radius_km
-
-
-def get_location_from_api():
-    try:
-        response = requests.get("http://127.0.0.1:8000/get_location")
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        print(f"Error fetching location data: {e}")
-        return None
-
 
 def start_camera():
     url = "http://127.0.0.1:8000/start"
@@ -140,12 +112,12 @@ def insert_absensi(tanggal_absensi, id_mahasiswa, waktu_masuk):
 
 
 def process_frame():
-    global app_running, latitude, longitude
+    global app_running
     start_time = time.time()
 
     while app_running:
 
-        if time.time() - start_time > 5:
+        if time.time() - start_time > 10:
             stop_camera()
             stop_application()
             break
@@ -174,7 +146,7 @@ def process_frame():
                     name = studentName[matchIndex].upper()
 
                     if current_date not in dates_printed:
-                        response = requests.get("http://127.0.0.1:8000/mahasiswa", params={"name": name})
+                        response = requests.get("http://127.0.0.1:8000/nama_mahasiswa", params={"name": name})
                         result = response.json()
 
                         if result:
@@ -199,20 +171,9 @@ def process_frame():
 
                                 if count_result == 0:
 
-                                    location_data = get_location_from_api()
+                                    absenceTime = datetime.now().strftime('%H:%M:%S')
 
-                                    if location_data:
-                                        for location in location_data["locations"]:
-                                            latitude = location["latitude"]
-                                            longitude = location["longitude"]
-                                            print(f"Received Pada absen: {latitude}, longitude: {longitude}")
-
-                                            if is_within_campus(latitude, longitude, CAMPUS_LAT, CAMPUS_LON, RADIUS_KM):
-                                                insert_absensi(current_date, id_mahasiswa, absenceTime)
-                                            else:
-                                                print("Mahasiswa tidak di dalam kampus. Tidak melakukan absensi.")
-
-
+                                    insert_absensi(current_date, id_mahasiswa, absenceTime)
 
                 cv2.imshow("wajah", img)
                 key = cv2.waitKey(1) & 0xFF
